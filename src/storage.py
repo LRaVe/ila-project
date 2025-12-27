@@ -48,6 +48,17 @@ def add_note(content: str) -> None:
     notes.append(new_note)
     save_notes(notes)
 
+def delete_note(note_id: str) -> None:
+    """Delete a note from storage.
+    
+    Args:
+        note_id: The ID of the note to delete.
+    """
+    notes = load_notes()
+    notes = [note for note in notes if note["id"] != note_id]
+    save_notes(notes)
+
+
 
 def get_all_notes() -> List[Dict[str, str]]:
     """Get all notes from storage.
@@ -56,4 +67,5 @@ def get_all_notes() -> List[Dict[str, str]]:
         List of all note dictionaries.
     """
     return load_notes()
+
 

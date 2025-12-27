@@ -11,7 +11,7 @@ from rich.table import Table
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent))
 
-from storage import add_note, get_all_notes
+from database import add_note, get_all_notes, delete_note
 
 app = typer.Typer()
 console = Console()
@@ -27,7 +27,20 @@ def add(
         note: The note content to save.
     """
     add_note(note)
-    console.print(f"[green]✓[/green] Note added successfully!")
+    console.print("[green]✓[/green] Note added successfully!")
+
+@app.command()
+def delete(
+    noteID: str = typer.Argument(..., help="The ID of the note to delete"),
+) -> None:
+    """Delete the note with the input ID
+
+    Args: 
+        noteID : ID of the note we want to delete.
+    """
+    delete_note(noteID)
+    console.print("[green]✓[/green] Note deleted successfully!")
+
 
 
 @app.command()
@@ -36,15 +49,18 @@ def list_notes() -> None:
     notes = get_all_notes()
     
     if not notes:
-        console.print("[yellow]No notes found. Use 'add' to create your first note.[/yellow]")
+        console.print(
+            "[yellow]No notes found. Use 'add' to create your first note.[/yellow]"
+        )
         return
     
     table = Table(title="Saved Notes", show_header=True, header_style="bold magenta")
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Content", style="white")
+    table.add_column("Created At", style="dim", no_wrap=True)
     
     for note in notes:
-        table.add_row(note["id"], note["content"])
+        table.add_row(note["id"], note["content"], note["created_at"])
     
     console.print(table)
 
