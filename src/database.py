@@ -118,3 +118,20 @@ def get_note_by_id(note_id: int) -> Optional[Dict[str, str]]:
         }
     return None
 
+
+def delete_note(note_id: str) -> None:
+    """Delete a note from the database.
+    
+    Args:
+        note_id: The ID of the note to delete.
+    """
+    initialize_database()
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Use parameterized query to prevent SQL injection
+    cursor.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+    
+    conn.commit()
+    conn.close()
+

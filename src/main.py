@@ -36,14 +36,14 @@ def add(
 
 @app.command()
 def delete(
-    noteID: str = typer.Argument(..., help="The ID of the note to delete"),
+    note_id: str = typer.Argument(..., help="The ID of the note to delete"),
 ) -> None:
     """Delete the note with the input ID
 
     Args: 
-        noteID : ID of the note we want to delete.
+        note_id : ID of the note we want to delete.
     """
-    delete_note(noteID)
+    delete_note(note_id)
     console.print("[green]✓[/green] Note deleted successfully!")
 
 
