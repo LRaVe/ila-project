@@ -13,6 +13,7 @@ if __name__ == "__main__":
 
 from database import add_note, get_all_notes, delete_note
 from ai_logic import text_to_vector, vector_to_bytes, bytes_to_vector, cosine_similarity
+from ingestor import ingest_file
 
 app = typer.Typer()
 console = Console()
@@ -138,6 +139,29 @@ def find(
         )
     
     console.print(table)
+
+
+@app.command()
+def ingest(
+    file_path: str = typer.Argument(..., help="Path to the file to ingest"),
+) -> None:
+    """Ingest a file by reading it, chunking it, and saving each chunk as a note.
+    
+    Args:
+        file_path: Path to the file to ingest.
+    """
+    try:
+        num_chunks = ingest_file(file_path)
+        console.print(f"[green]✓[/green] Successfully ingested file! Created {num_chunks} note(s).")
+    except FileNotFoundError as e:
+        console.print(f"[red]✗[/red] Error: {e}")
+        raise typer.Exit(code=1)
+    except (IOError, ValueError) as e:
+        console.print(f"[red]✗[/red] Error: {e}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"[red]✗[/red] Unexpected error: {e}")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

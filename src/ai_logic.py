@@ -30,7 +30,7 @@ def text_to_vector(text: str) -> np.ndarray:
         Numpy array representing the embedding vector.
     """
     model = get_model()
-    embedding = model.encode(text, convert_to_numpy=True)
+    embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
     return embedding
 
 
@@ -53,12 +53,14 @@ def bytes_to_vector(data: bytes) -> np.ndarray:
         data: The bytes data from database.
         
     Returns:
-        Numpy array representing the embedding vector.
+        Numpy array representing the embedding vector (1D array).
     """
     if data is None:
         return None
     # The model 'all-MiniLM-L6-v2' produces 384-dimensional vectors
-    return np.frombuffer(data, dtype=np.float32)
+    vector = np.frombuffer(data, dtype=np.float32)
+    # Ensure it's a 1D array
+    return vector.flatten()
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -74,10 +76,27 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     if vec1 is None or vec2 is None:
         return 0.0
     
-    # Normalize vectors
-    vec1_norm = vec1 / (np.linalg.norm(vec1) + 1e-8)
-    vec2_norm = vec2 / (np.linalg.norm(vec2) + 1e-8)
+    # Ensure vectors are 1D and have the same shape
+    vec1 = vec1.flatten()
+    vec2 = vec2.flatten()
     
-    # Calculate cosine similarity
-    return float(np.dot(vec1_norm, vec2_norm))
+    if vec1.shape != vec2.shape:
+        return 0.0
+    
+    # Calculate dot product
+    dot_product = np.dot(vec1, vec2)
+    
+    # Calculate norms
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+    
+    # Avoid division by zero
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+    
+    # Cosine similarity = dot product / (norm1 * norm2)
+    similarity = dot_product / (norm1 * norm2)
+    
+    # Clamp to [-1, 1] to handle floating point errors
+    return float(np.clip(similarity, -1.0, 1.0))
 

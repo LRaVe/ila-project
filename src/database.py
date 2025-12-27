@@ -30,7 +30,8 @@ def initialize_database() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             content TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            embedding BLOB
+            embedding BLOB,
+            source_file TEXT
         )
     """)
     
@@ -41,23 +42,31 @@ def initialize_database() -> None:
         # Column already exists, ignore
         pass
     
+    # Add source_file column to existing tables if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE notes ADD COLUMN source_file TEXT")
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
+    
     conn.commit()
     conn.close()
 
 
-def add_note(content: str, embedding: Optional[bytes] = None) -> None:
+def add_note(content: str, embedding: Optional[bytes] = None, source_file: Optional[str] = None) -> None:
     """Add a new note to the database.
     
     Args:
         content: The note content to save.
         embedding: The embedding vector as binary blob (optional).
+        source_file: The source file name if the note came from a file (optional).
     """
     initialize_database()
     conn = get_connection()
     cursor = conn.cursor()
     
     # Use parameterized query to prevent SQL injection
-    cursor.execute("INSERT INTO notes (content, embedding) VALUES (?, ?)", (content, embedding))
+    cursor.execute("INSERT INTO notes (content, embedding, source_file) VALUES (?, ?, ?)", (content, embedding, source_file))
     
     conn.commit()
     conn.close()
@@ -74,7 +83,7 @@ def get_all_notes() -> List[Dict[str, Any]]:
     cursor = conn.cursor()
     
     # Use parameterized query (though SELECT without user input is safe)
-    cursor.execute("SELECT id, content, created_at, embedding FROM notes ORDER BY id ASC")
+    cursor.execute("SELECT id, content, created_at, embedding, source_file FROM notes ORDER BY id ASC")
     
     rows = cursor.fetchall()
     notes = [
@@ -82,7 +91,8 @@ def get_all_notes() -> List[Dict[str, Any]]:
             "id": str(row["id"]),
             "content": row["content"],
             "created_at": row["created_at"],
-            "embedding": row["embedding"]
+            "embedding": row["embedding"],
+            "source_file": row["source_file"]
         }
         for row in rows
     ]
