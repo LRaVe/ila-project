@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 
+import numpy as np
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -12,8 +13,9 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent))
 
 from database import add_note, get_all_notes, delete_note
-from ai_logic import text_to_vector, vector_to_bytes, bytes_to_vector, cosine_similarity
+from ai_logic import text_to_vector, vector_to_bytes, bytes_to_vector, cosine_similarity, cosine_similarity_batch
 from ingestor import ingest_file
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 app = typer.Typer()
 console = Console()
@@ -88,32 +90,64 @@ def find(
         query: The search query string.
     """
     # Generate embedding for the query
-    query_embedding = text_to_vector(query)
+    with console.status("[cyan]Generating query embedding..."):
+        query_embedding = text_to_vector(query)
     
     # Get all notes from database
-    notes = get_all_notes()
+    with console.status("[cyan]Loading notes from database..."):
+        notes = get_all_notes()
     
     if not notes:
         console.print("[yellow]No notes found. Use 'add' to create your first note.[/yellow]")
         return
     
-    # Calculate cosine similarity for each note
-    note_similarities = []
-    for note in notes:
-        if note["embedding"] is None:
-            # Skip notes without embeddings (old notes)
-            continue
-        
-        note_embedding = bytes_to_vector(note["embedding"])
-        similarity = cosine_similarity(query_embedding, note_embedding)
-        note_similarities.append({
-            "note": note,
-            "similarity": similarity
-        })
+    # Filter notes with embeddings and convert to vectors efficiently
+    notes_with_embeddings = []
+    note_embeddings_list = []
     
-    if not note_similarities:
+    for note in notes:
+        if note["embedding"] is not None:
+            notes_with_embeddings.append(note)
+            note_embeddings_list.append(note["embedding"])
+    
+    if not notes_with_embeddings:
         console.print("[yellow]No notes with embeddings found. Add some notes first.[/yellow]")
         return
+    
+    # Convert all embeddings to vectors at once (more efficient)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task(
+            "[cyan]Calculating similarities...",
+            total=len(notes_with_embeddings)
+        )
+        
+        # Convert all byte embeddings to numpy arrays
+        note_vectors = []
+        for i, embedding_bytes in enumerate(note_embeddings_list):
+            note_vectors.append(bytes_to_vector(embedding_bytes))
+            progress.update(task, advance=1)
+        
+        # Convert to numpy array for vectorized operations
+        note_vectors_array = np.array(note_vectors)
+        
+        # Calculate all similarities at once using vectorized operations
+        progress.update(task, description="[cyan]Computing similarities (vectorized)...")
+        similarities = cosine_similarity_batch(query_embedding, note_vectors_array)
+    
+    # Create list of note-similarity pairs
+    note_similarities = [
+        {
+            "note": notes_with_embeddings[i],
+            "similarity": float(similarities[i])
+        }
+        for i in range(len(notes_with_embeddings))
+    ]
     
     # Sort by similarity (descending) and get top 3
     note_similarities.sort(key=lambda x: x["similarity"], reverse=True)

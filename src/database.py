@@ -61,9 +61,25 @@ def add_note(content: str, embedding: Optional[bytes] = None, source_file: Optio
         embedding: The embedding vector as binary blob (optional).
         source_file: The source file name if the note came from a file (optional).
     """
-    initialize_database()
     conn = get_connection()
     cursor = conn.cursor()
+    
+    # Quick check if table exists, initialize if not
+    try:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='notes'")
+        if cursor.fetchone() is None:
+            # Table doesn't exist, initialize it
+            initialize_database()
+            # Reconnect after initialization
+            conn.close()
+            conn = get_connection()
+            cursor = conn.cursor()
+    except sqlite3.Error:
+        # If check fails, try to initialize
+        conn.close()
+        initialize_database()
+        conn = get_connection()
+        cursor = conn.cursor()
     
     # Use parameterized query to prevent SQL injection
     cursor.execute("INSERT INTO notes (content, embedding, source_file) VALUES (?, ?, ?)", (content, embedding, source_file))
@@ -78,9 +94,25 @@ def get_all_notes() -> List[Dict[str, Any]]:
     Returns:
         List of note dictionaries with 'id', 'content', 'created_at', and 'embedding' keys.
     """
-    initialize_database()
     conn = get_connection()
     cursor = conn.cursor()
+    
+    # Quick check if table exists, initialize if not
+    try:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='notes'")
+        if cursor.fetchone() is None:
+            # Table doesn't exist, initialize it
+            initialize_database()
+            # Reconnect after initialization
+            conn.close()
+            conn = get_connection()
+            cursor = conn.cursor()
+    except sqlite3.Error:
+        # If check fails, try to initialize
+        conn.close()
+        initialize_database()
+        conn = get_connection()
+        cursor = conn.cursor()
     
     # Use parameterized query (though SELECT without user input is safe)
     cursor.execute("SELECT id, content, created_at, embedding, source_file FROM notes ORDER BY id ASC")
