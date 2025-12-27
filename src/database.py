@@ -3,7 +3,7 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 DB_FILE = Path("ila.db")
 
@@ -29,50 +29,60 @@ def initialize_database() -> None:
         CREATE TABLE IF NOT EXISTS notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            embedding BLOB
         )
     """)
+    
+    # Add embedding column to existing tables if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE notes ADD COLUMN embedding BLOB")
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
     
     conn.commit()
     conn.close()
 
 
-def add_note(content: str) -> None:
+def add_note(content: str, embedding: Optional[bytes] = None) -> None:
     """Add a new note to the database.
     
     Args:
         content: The note content to save.
+        embedding: The embedding vector as binary blob (optional).
     """
     initialize_database()
     conn = get_connection()
     cursor = conn.cursor()
     
     # Use parameterized query to prevent SQL injection
-    cursor.execute("INSERT INTO notes (content) VALUES (?)", (content,))
+    cursor.execute("INSERT INTO notes (content, embedding) VALUES (?, ?)", (content, embedding))
     
     conn.commit()
     conn.close()
 
 
-def get_all_notes() -> List[Dict[str, str]]:
+def get_all_notes() -> List[Dict[str, Any]]:
     """Get all notes from the database.
     
     Returns:
-        List of note dictionaries with 'id', 'content', and 'created_at' keys.
+        List of note dictionaries with 'id', 'content', 'created_at', and 'embedding' keys.
     """
     initialize_database()
     conn = get_connection()
     cursor = conn.cursor()
     
     # Use parameterized query (though SELECT without user input is safe)
-    cursor.execute("SELECT id, content, created_at FROM notes ORDER BY id ASC")
+    cursor.execute("SELECT id, content, created_at, embedding FROM notes ORDER BY id ASC")
     
     rows = cursor.fetchall()
     notes = [
         {
             "id": str(row["id"]),
             "content": row["content"],
-            "created_at": row["created_at"]
+            "created_at": row["created_at"],
+            "embedding": row["embedding"]
         }
         for row in rows
     ]
